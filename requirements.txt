@@ -1,0 +1,10 @@
+Numpy # Library for numerical computing for arrays and matrices.
+Pandas # Library used for data analysis and processing CSV files.
+Requests==2.31.0 # Library for making requests in Python, for API interactions.
+urllib3==1.26.6 # user-friendly HTTP client for Python often used with Requests
+fastapi==0.85.1 # web framework for building APIs with automatic interactive.
+mangum==0.16.0 # An adapter for running ASGI applications on AWS Lambda
+pydantic==1.10.2 # A data validation and settings management library
+uvicorn==0.19.0 # An ASGI server for running asynchronous web applications,
+starlette==0.20.4 # The lightweight ASGI framework that FastAPI is built upon
+boto3 # The AWS SDK for Python for interaction with AWS services like S3.
