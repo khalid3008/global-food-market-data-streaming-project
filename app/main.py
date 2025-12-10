@@ -2,66 +2,53 @@ from typing import Optional, List, Any
 
 from fastapi import FastAPI, Query, HTTPException
 import pandas as pd
-import os
+from io import StringIO
 import uvicorn
+import requests
 
-app = FastAPI(
-    title="Global Food Market API",
-    description="Serve filtered records from the global food market dataset stored in S3.",
-    version="0.1.0",
-)
+# FastAPI application for fetching and filtering data from a CSV file in S3
+app = FastAPI()
 
-# Config
-S3_BUCKET = os.getenv("RAW_DATA_BUCKET", "khalid-global-food-market-data-raw")
-S3_KEY = os.getenv("RAW_DATA_KEY", "total_data.csv")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
-
-# using public HTTP URL, since the bucket was made public
-CSV_URL = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{S3_KEY}"
+S3_CSV_URL = "https://khalid-global-food-market-data-raw.s3.us-east-2.amazonaws.com/total_data.csv"
 
 
-def fetch_data(year: int = None, country: str = None, market: str = None):
+def fetch_data(
+    year: Optional[int] = None,
+    country: Optional[str] = None,
+    market: Optional[str] = None,
+) -> pd.DataFrame:
     """
     Fetch and filter data from a CSV file hosted on S3 based on provided
-    parameters. Returns a JSON string like in the ProjectPro example.
+    parameters. Returns a pandas DataFrame.
     """
+    # 1. Load CSV
     try:
-        # Load CSV content into a pandas DataFrame from the S3 URL
         print(f"Fetching CSV from: {S3_CSV_URL}")
         resp = requests.get(S3_CSV_URL, timeout=30)
-        resp.raise_for_status()  # will raise if 4xx/5xx
-
-        # pandas reads from an in-memory text buffer
+        resp.raise_for_status()
         df = pd.read_csv(StringIO(resp.text))
-        print(df.shape[0])  # number of rows in original DataFrame
-
-        # Apply filters based on provided parameters
-        if year is not None:
-            print("Filtering by year")
-            df = df[df["year"] == year]
-
-        if country is not None:
-            print("Filtering by country")
-            df = df[df["country"] == country]
-
-        if market is not None:
-            print("Filtering by market")
-            df = df[df["mkt_name"] == market]
-
-        # Fill NaN values with empty strings for cleaner output
-        df_filter = df.fillna("")
-        print(df_filter.shape[0])  # rows after filtering
-
-        # Convert filtered DataFrame to JSON
-        if df_filter.empty:
-            raise ValueError("No data found for the specified filters.")
-        else:
-            filtered_json = df_filter.to_json(orient="records")
-            return filtered_json
-
+        print(f"Loaded {df.shape[0]} rows from CSV")
     except Exception as e:
-        # Same style as the example: return error dict
-        return {"error": str(e)}
+        print("Error loading CSV from S3:", repr(e))
+        # Surface a clear API error
+        raise HTTPException(status_code=500, detail=f"Error loading CSV from S3: {e}")
+
+    # 2. Apply filters
+    if year is not None:
+        print("Filtering by year")
+        df = df[df["year"] == year]
+
+    if country is not None:
+        print("Filtering by country")
+        df = df[df["country"] == country]
+
+    if market is not None:
+        print("Filtering by market")
+        df = df[df["mkt_name"] == market]
+
+    df = df.fillna("")
+    print(f"{df.shape[0]} rows after filtering")
+    return df
 
 
 @app.get("/fetch_data")
@@ -71,25 +58,22 @@ async def fetch_data_api(
     market: Optional[str] = Query(None),
 ) -> List[dict[str, Any]]:
     """
-    API wrapper returning JSON records.
+    API endpoint that returns filtered records as JSON.
     """
-    try:
-        df_filtered = fetch_data(year=year, country=country, market=market)
+    # Get a DataFrame (or an HTTPException if something goes wrong)
+    df_filtered = fetch_data(year=year, country=country, market=market)
 
-        if df_filtered.empty:
-            raise HTTPException(
-                status_code=404,
-                detail="No data found for the specified filters.",
-            )
+    if df_filtered.empty:
+        # No records for given filters
+        raise HTTPException(
+            status_code=404,
+            detail="No data found for the specified filters.",
+        )
 
-        # Return list of dicts – FastAPI will JSON-serialize this
-        return df_filtered.to_dict(orient="records")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Return as list of dicts – FastAPI turns this into JSON
+    return df_filtered.to_dict(orient="records")
 
 
 if __name__ == "__main__":
+    # Run the FastAPI application using uvicorn server
     uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
