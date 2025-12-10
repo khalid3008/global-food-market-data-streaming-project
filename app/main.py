@@ -20,34 +20,48 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
 CSV_URL = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{S3_KEY}"
 
 
-def fetch_data(
-    year: Optional[int] = None,
-    country: Optional[str] = None,
-    market: Optional[str] = None,
-) -> pd.DataFrame:
+def fetch_data(year: int = None, country: str = None, market: str = None):
     """
-    Load the CSV from S3 and apply optional filters.
+    Fetch and filter data from a CSV file hosted on S3 based on provided
+    parameters. Returns a JSON string like in the ProjectPro example.
     """
-    # Load CSV
-    df = pd.read_csv(CSV_URL)
-    print(f"Loaded {df.shape[0]} rows from {CSV_URL}")
+    try:
+        # Load CSV content into a pandas DataFrame from the S3 URL
+        print(f"Fetching CSV from: {S3_CSV_URL}")
+        resp = requests.get(S3_CSV_URL, timeout=30)
+        resp.raise_for_status()  # will raise if 4xx/5xx
 
-    # Apply filters
-    if year is not None:
-        print("Filtering by year")
-        df = df[df["year"] == year]
+        # pandas reads from an in-memory text buffer
+        df = pd.read_csv(StringIO(resp.text))
+        print(df.shape[0])  # number of rows in original DataFrame
 
-    if country is not None:
-        print("Filtering by country")
-        df = df[df["country"] == country]
+        # Apply filters based on provided parameters
+        if year is not None:
+            print("Filtering by year")
+            df = df[df["year"] == year]
 
-    if market is not None:
-        print("Filtering by market")
-        df = df[df["mkt_name"] == market]
+        if country is not None:
+            print("Filtering by country")
+            df = df[df["country"] == country]
 
-    df = df.fillna("")
-    print(f"{df.shape[0]} rows after filtering")
-    return df
+        if market is not None:
+            print("Filtering by market")
+            df = df[df["mkt_name"] == market]
+
+        # Fill NaN values with empty strings for cleaner output
+        df_filter = df.fillna("")
+        print(df_filter.shape[0])  # rows after filtering
+
+        # Convert filtered DataFrame to JSON
+        if df_filter.empty:
+            raise ValueError("No data found for the specified filters.")
+        else:
+            filtered_json = df_filter.to_json(orient="records")
+            return filtered_json
+
+    except Exception as e:
+        # Same style as the example: return error dict
+        return {"error": str(e)}
 
 
 @app.get("/fetch_data")
