@@ -24,7 +24,7 @@ def fetch_data(
     # 1. Load CSV
     try:
         print(f"Fetching CSV from: {S3_CSV_URL}")
-        resp = requests.get(S3_CSV_URL, timeout=30)
+        resp = requests.get(S3_CSV_URL)
         resp.raise_for_status()
         df = pd.read_csv(StringIO(resp.text))
         print(f"Loaded {df.shape[0]} rows from CSV")
