@@ -6,7 +6,6 @@ from io import StringIO
 import uvicorn
 import requests
 
-# FastAPI application for fetching and filtering data from a CSV file in S3
 app = FastAPI()
 
 S3_CSV_URL = "https://khalid-global-food-market-data-raw.s3.us-east-2.amazonaws.com/total_data.csv"
@@ -28,23 +27,65 @@ def fetch_data(
         resp.raise_for_status()
         df = pd.read_csv(StringIO(resp.text))
         print(f"Loaded {df.shape[0]} rows from CSV")
+        print("Raw columns from CSV:", df.columns.tolist())
     except Exception as e:
         print("Error loading CSV from S3:", repr(e))
-        # Surface a clear API error
         raise HTTPException(status_code=500, detail=f"Error loading CSV from S3: {e}")
 
-    # 2. Apply filters
+    # 2. Normalize column names (strip spaces, lowercase) for safety
+    normalized_cols = [str(c).strip().lower() for c in df.columns]
+    df.columns = normalized_cols
+    print("Normalized columns:", df.columns.tolist())
+
+    # Based on your file: col 0 = country, col 1 = mkt_name, col 3 = year.
+    # But also handle the case where pandas already used the correct names.
+    if "country" in df.columns:
+        country_col = "country"
+    else:
+        country_col = df.columns[0]  # first column as fallback
+
+    if "mkt_name" in df.columns:
+        market_col = "mkt_name"
+    else:
+        # fallback to second column if present
+        market_col = df.columns[1] if len(df.columns) > 1 else None
+
+    if "year" in df.columns:
+        year_col = "year"
+    else:
+        # fallback: try the 4th column (index 3) if exists
+        year_col = df.columns[3] if len(df.columns) > 3 else None
+
+    print(f"Resolved columns → year: {year_col}, country: {country_col}, market: {market_col}")
+
+    # 3. Apply filters
+
     if year is not None:
+        if not year_col:
+            raise HTTPException(
+                status_code=500,
+                detail=f"'year' column not found. Columns: {df.columns.tolist()}",
+            )
         print("Filtering by year")
-        df = df[df["year"] == year]
+        df = df[df[year_col] == year]
 
     if country is not None:
+        if not country_col:
+            raise HTTPException(
+                status_code=500,
+                detail=f"'country' column not found. Columns: {df.columns.tolist()}",
+            )
         print("Filtering by country")
-        df = df[df["country"] == country]
+        df = df[df[country_col] == country]
 
     if market is not None:
+        if not market_col:
+            raise HTTPException(
+                status_code=500,
+                detail=f"'mkt_name' column not found. Columns: {df.columns.tolist()}",
+            )
         print("Filtering by market")
-        df = df[df["mkt_name"] == market]
+        df = df[df[market_col] == market]
 
     df = df.fillna("")
     print(f"{df.shape[0]} rows after filtering")
@@ -57,23 +98,16 @@ async def fetch_data_api(
     country: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
 ) -> List[dict[str, Any]]:
-    """
-    API endpoint that returns filtered records as JSON.
-    """
-    # Get a DataFrame (or an HTTPException if something goes wrong)
     df_filtered = fetch_data(year=year, country=country, market=market)
 
     if df_filtered.empty:
-        # No records for given filters
         raise HTTPException(
             status_code=404,
             detail="No data found for the specified filters.",
         )
 
-    # Return as list of dicts – FastAPI turns this into JSON
     return df_filtered.to_dict(orient="records")
 
 
 if __name__ == "__main__":
-    # Run the FastAPI application using uvicorn server
     uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
