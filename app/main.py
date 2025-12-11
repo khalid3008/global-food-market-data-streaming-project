@@ -37,8 +37,6 @@ def fetch_data(
     df.columns = normalized_cols
     print("Normalized columns:", df.columns.tolist())
 
-    # Based on your file: col 0 = country, col 1 = mkt_name, col 3 = year.
-    # But also handle the case where pandas already used the correct names.
     if "country" in df.columns:
         country_col = "country"
     else:
