@@ -22,11 +22,11 @@ def fetch_data(
     """
     # 1. Load CSV
     try:
-    print(f"Fetching CSV from: {S3_CSV_URL}")
-    df = pd.read_csv(S3_CSV_URL)   # <-- key change
-    print(f"Loaded {df.shape[0]} rows from CSV")
-except Exception as e:
-    raise HTTPException(status_code=500, detail=f"Error loading CSV from S3: {e}")
+    	print(f"Fetching CSV from: {S3_CSV_URL}")
+    	df = pd.read_csv(S3_CSV_URL)
+    	print(f"Loaded {df.shape[0]} rows from CSV")
+    except Exception as e:
+    	raise HTTPException(status_code=500, detail=f"Error loading CSV from S3: {e}")
 
     # 2. Normalize column names (strip spaces, lowercase) for safety
     normalized_cols = [str(c).strip().lower() for c in df.columns]
