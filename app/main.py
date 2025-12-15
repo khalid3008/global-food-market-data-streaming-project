@@ -95,7 +95,7 @@ async def fetch_data_api(
     year: Optional[int] = Query(None),
     country: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
-) -> List[dict[str, Any]]:
+) -> List[dict]:
     df_filtered = fetch_data(year=year, country=country, market=market)
 
     if df_filtered.empty:
