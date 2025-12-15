@@ -77,23 +77,31 @@ def fetch_data(
     print(f"{df.shape[0]} rows after filtering")
     return df
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
 
 @app.get("/fetch_data")
 async def fetch_data_api(
     year: Optional[int] = Query(None),
     country: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
-) -> List[dict]:
-    df_filtered = fetch_data(year=year, country=country, market=market)
+):
+    print(f"/fetch_data called with year={year}, country={country}, market={market}")
+    try:
+        df_filtered = fetch_data(year=year, country=country, market=market)
 
-    if df_filtered.empty:
-        raise HTTPException(
-            status_code=404,
-            detail="No data found for the specified filters.",
-        )
+        if df_filtered.empty:
+            raise HTTPException(status_code=404, detail="No data found for the specified filters.")
 
-    return df_filtered.to_dict(orient="records")
+        # IMPORTANT: cap response size for now (see below)
+        return df_filtered.head(5000).to_dict(orient="records")
 
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("ERROR in /fetch_data:", repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
