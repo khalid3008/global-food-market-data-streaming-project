@@ -1,5 +1,6 @@
-from typing import Optional, List, Any
+DF_CACHE = None
 
+from typing import Optional, List, Any
 from fastapi import FastAPI, Query, HTTPException
 import pandas as pd
 from io import StringIO
@@ -16,22 +17,13 @@ def fetch_data(
     country: Optional[str] = None,
     market: Optional[str] = None,
 ) -> pd.DataFrame:
-    """
-    Fetch and filter data from a CSV file hosted on S3 based on provided
-    parameters. Returns a pandas DataFrame.
-    """
-    # 1. Load CSV
-    try:
-    	print(f"Fetching CSV from: {S3_CSV_URL}")
-    	df = pd.read_csv(S3_CSV_URL)
-    	print(f"Loaded {df.shape[0]} rows from CSV")
-    except Exception as e:
-    	raise HTTPException(status_code=500, detail=f"Error loading CSV from S3: {e}")
+    global DF_CACHE
+    if DF_CACHE is None:
+    	print(f"Loading CSV once from: {S3_CSV_URL}")
+    	DF_CACHE = pd.read_csv(S3_CSV_URL)
+    	DF_CACHE.columns = [str(c).strip().lower() for c in DF_CACHE.columns]
 
-    # 2. Normalize column names (strip spaces, lowercase) for safety
-    normalized_cols = [str(c).strip().lower() for c in df.columns]
-    df.columns = normalized_cols
-    print("Normalized columns:", df.columns.tolist())
+    df = DF_CACHE
 
     if "country" in df.columns:
         country_col = "country"
