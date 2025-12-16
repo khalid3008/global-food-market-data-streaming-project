@@ -16,65 +16,48 @@ def fetch_data(
     year: Optional[int] = None,
     country: Optional[str] = None,
     market: Optional[str] = None,
+    limit: int = 5000,
 ) -> pd.DataFrame:
-    global DF_CACHE
-    if DF_CACHE is None:
-    	print(f"Loading CSV once from: {S3_CSV_URL}")
-    	DF_CACHE = pd.read_csv(S3_CSV_URL)
-    	DF_CACHE.columns = [str(c).strip().lower() for c in DF_CACHE.columns]
+    """
+    Stream-read the CSV in chunks and filter as we go.
+    Returns at most `limit` rows.
+    """
+    try:
+        chunks = pd.read_csv(S3_CSV_URL, chunksize=50000)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error opening CSV: {e}")
 
-    df = DF_CACHE
+    results = []
+    total_found = 0
 
-    if "country" in df.columns:
+    for chunk in chunks:
+        # normalize columns once per chunk
+        chunk.columns = [str(c).strip().lower() for c in chunk.columns]
+
+        # column mapping (your file has country, mkt_name, year)
         country_col = "country"
-    else:
-        country_col = df.columns[0]  # first column as fallback
-
-    if "mkt_name" in df.columns:
         market_col = "mkt_name"
-    else:
-        # fallback to second column if present
-        market_col = df.columns[1] if len(df.columns) > 1 else None
-
-    if "year" in df.columns:
         year_col = "year"
-    else:
-        # fallback: try the 4th column (index 3) if exists
-        year_col = df.columns[3] if len(df.columns) > 3 else None
 
-    print(f"Resolved columns → year: {year_col}, country: {country_col}, market: {market_col}")
+        # apply filters
+        if year is not None:
+            chunk = chunk[chunk[year_col] == year]
+        if country is not None:
+            chunk = chunk[chunk[country_col] == country]
+        if market is not None:
+            chunk = chunk[chunk[market_col] == market]
 
-    # 3. Apply filters
+        if not chunk.empty:
+            results.append(chunk)
+            total_found += len(chunk)
+            if total_found >= limit:
+                break
 
-    if year is not None:
-        if not year_col:
-            raise HTTPException(
-                status_code=500,
-                detail=f"'year' column not found. Columns: {df.columns.tolist()}",
-            )
-        print("Filtering by year")
-        df = df[df[year_col] == year]
+    if not results:
+        return pd.DataFrame()
 
-    if country is not None:
-        if not country_col:
-            raise HTTPException(
-                status_code=500,
-                detail=f"'country' column not found. Columns: {df.columns.tolist()}",
-            )
-        print("Filtering by country")
-        df = df[df[country_col] == country]
-
-    if market is not None:
-        if not market_col:
-            raise HTTPException(
-                status_code=500,
-                detail=f"'mkt_name' column not found. Columns: {df.columns.tolist()}",
-            )
-        print("Filtering by market")
-        df = df[df[market_col] == market]
-
+    df = pd.concat(results, ignore_index=True).head(limit)
     df = df.fillna("")
-    print(f"{df.shape[0]} rows after filtering")
     return df
 
 @app.get("/")
@@ -86,22 +69,16 @@ async def fetch_data_api(
     year: Optional[int] = Query(None),
     country: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
+    limit: int = Query(5000, ge=1, le=5000),
 ):
-    print(f"/fetch_data called with year={year}, country={country}, market={market}")
-    try:
-        df_filtered = fetch_data(year=year, country=country, market=market)
+    print(f"/fetch_data called with year={year}, country={country}, market={market}, limit={limit}")
 
-        if df_filtered.empty:
-            raise HTTPException(status_code=404, detail="No data found for the specified filters.")
+    df_filtered = fetch_data(year=year, country=country, market=market, limit=limit)
 
-        # IMPORTANT: cap response size for now (see below)
-        return df_filtered.head(5000).to_dict(orient="records")
+    if df_filtered.empty:
+        raise HTTPException(status_code=404, detail="No data found for the specified filters.")
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        print("ERROR in /fetch_data:", repr(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    return df_filtered.to_dict(orient="records")
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8080)
