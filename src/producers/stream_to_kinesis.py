@@ -28,8 +28,7 @@ logger = logging.getLogger("api_to_kds")
 
 def build_kinesis_client(region: str):
     # Uses AWS default credential chain (AWS profile, env vars, IAM role, etc.)
-    return boto3.client("kinesis", region_name=region)
-
+    return boto3.client("kinesis", region_name=region, verify=False)
 
 def fetch_page(
     api_url: str,
