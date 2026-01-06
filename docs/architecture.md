@@ -6,7 +6,7 @@ flowchart LR
 
   subgraph RAW["Raw Layer (Ingestion & Landing)"]
     S3Source[(S3 Source Bucket\nHistorical global food CSV)]
-    API[FastAPI on AWS App Runner\n/fetch_data (filters + pagination)]
+    API[FastAPI on AWS App Runner\n/fetch_data\nfilters + pagination]
     Producer[Python Producer (CLI)\nstream_to_kinesis.py]
     KDS[[Kinesis Data Streams\nkds_global_food_stream]]
     Firehose[[Kinesis Data Firehose\n(Reads from KDS)]]
