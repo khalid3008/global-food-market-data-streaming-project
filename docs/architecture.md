@@ -1,3 +1,4 @@
+```mermaid
 flowchart LR
   %% =========================
   %% LAYERS
@@ -50,3 +51,4 @@ flowchart LR
   %% =========================
   EventNote{{S3 Object Created Event\n(S3 → notification channel)\ntriggers Snowpipe COPY}}
   S3Landing -.-> EventNote -.-> Pipe
+```
