@@ -1,0 +1,8 @@
+CREATE OR REPLACE STORAGE INTEGRATION FM_S3_INT
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = S3
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::783764606550:role/snowflake_s3_read_role'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://khalid-global-food-market-data-firehose-dest/data/');
+
+DESC INTEGRATION FM_S3_INT;

@@ -1,0 +1,10 @@
+CREATE OR REPLACE PIPE Food_Market_DB.RAW.MY_SNOWPIPE
+  AUTO_INGEST = TRUE
+AS
+COPY INTO Food_Market_DB.RAW.RAW_DATA
+FROM @Food_Market_DB.RAW.S3_STAGE
+FILE_FORMAT = (FORMAT_NAME = Food_Market_DB.RAW.CSV_FORMAT)
+ON_ERROR = 'CONTINUE';
+
+--use notification channel here for s3 event notifications
+DESC PIPE Food_Market_DB.RAW.MY_SNOWPIPE;
