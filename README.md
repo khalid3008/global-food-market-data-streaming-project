@@ -50,7 +50,7 @@ global-food-market-data-streaming-project/
 │
 ├── docs/
 │   └── architecture.md          # Architecture diagram & explanation
-│
+│   └── run-the-pipeline.md      # How to run the pipeline
 ├── README.md
 ├── LICENSE
 └── .gitignore
