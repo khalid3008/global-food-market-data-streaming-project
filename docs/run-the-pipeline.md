@@ -24,8 +24,22 @@ https://<apprunner-service-url>/fetch_data
 Data is streamed into AWS Kinesis using the Python producer located in `src/producers/stream_to_kinesis.py`.
 The producer pulls data from the FastAPI endpoint and writes records into Kinesis Data Streams.
 
+Before running the producer, the local environment must be authenticated with AWS. This project relied on the AWS Default Credential Provider Chain, and no credentials are hardcoded in the codebase.
+
+### Prerequisites
+- AWS CLI installed
+- An AWS IAM user or role with permission to write to Kinesis Data Streams
+- Local AWS credentials configured via `aws configure`
+
+To verify authentication:
+
+```powershell
+aws sts get-caller-identity
+```
+
 Example PowerShell command:
 
+```powershell
 python -m src.producers.stream_to_kinesis `
   --api-url "https://<apprunner-service-url>/fetch_data" `
   --stream-name "kds_global_food_stream" `
@@ -34,6 +48,7 @@ python -m src.producers.stream_to_kinesis `
   --country "Armenia" `
   --start-offset 0 `
   --limit 100
+  ```
 
 Notes:
 - `year` and `country` control which subset of data is streamed.
