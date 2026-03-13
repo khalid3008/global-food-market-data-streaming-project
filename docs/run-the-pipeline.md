@@ -53,7 +53,7 @@ python -m src.producers.stream_to_kinesis `
 Notes:
 - `year` and `country` control which subset of data is streamed.
 - `offset` and `limit` enable pagination.
-- In a production setup, this producer would typically be scheduled (for example, using EventBridge or ECS).
+- In a production setup, this producer would typically be scheduled (for example, using EventBridge and lambda or ECS, or an EC2 instance).
 
 ---
 
